@@ -13,32 +13,45 @@ app.get("/check/:robloxId", async (req, res) => {
     }
 
     const robloxId = req.params.robloxId;
+    console.log(`[CHECK] Roblox ID: ${robloxId}`);
 
     try {
         // Step 1: Get Discord ID from RoVer
-        const roverRes = await fetch(
-            `https://registry.rover.link/api/guilds/${GUILD_ID}/roblox-to-discord/${robloxId}`
-        );
+        const roverUrl = `https://registry.rover.link/api/guilds/${GUILD_ID}/roblox-to-discord/${robloxId}`;
+        console.log(`[ROVER] Calling: ${roverUrl}`);
+        const roverRes = await fetch(roverUrl);
+        const roverText = await roverRes.text();
+        console.log(`[ROVER] Status: ${roverRes.status} | Body: ${roverText}`);
+
         if (!roverRes.ok) {
             return res.json({ hasPlaytester: false, reason: "Not verified with RoVer" });
         }
-        const roverData = await roverRes.json();
+
+        const roverData = JSON.parse(roverText);
         const discordId = roverData.discordId;
+        console.log(`[ROVER] Discord ID found: ${discordId}`);
 
         // Step 2: Check Discord role
-        const discordRes = await fetch(
-            `https://discord.com/api/v10/guilds/${GUILD_ID}/members/${discordId}`,
-            { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }
-        );
+        const discordUrl = `https://discord.com/api/v10/guilds/${GUILD_ID}/members/${discordId}`;
+        console.log(`[DISCORD] Calling: ${discordUrl}`);
+        const discordRes = await fetch(discordUrl, {
+            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }
+        });
+        const discordText = await discordRes.text();
+        console.log(`[DISCORD] Status: ${discordRes.status} | Body: ${discordText}`);
+
         if (!discordRes.ok) {
             return res.json({ hasPlaytester: false, reason: "Could not fetch Discord member" });
         }
-        const member = await discordRes.json();
+
+        const member = JSON.parse(discordText);
         const hasPlaytester = member.roles.includes(PLAYTESTER_ROLE_ID);
+        console.log(`[DISCORD] Roles: ${member.roles} | Has Playtester: ${hasPlaytester}`);
 
         return res.json({ hasPlaytester });
 
     } catch (e) {
+        console.error(`[ERROR] ${e.message}`);
         return res.status(500).json({ error: e.message });
     }
 });
